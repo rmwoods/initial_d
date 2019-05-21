@@ -3,14 +3,44 @@ the number available (total and per category).
 """
 
 import argparse
+import re
 import requests
+import sys
 
+# Websites to scrape
+WEBSITES = {
+        "https://www.tdotperformance.ca/": "https://www.tdotperformance.ca/YEAR-MAKE-MODEL-parts/performance-parts",
+}
+
+# XXX - bad way to do this. Just first pass.
+TEMP_RE = "(?P<num>\d+) total"
 
 def quantify_mod(year=None, make=None, model=None, trim=None):
     """Given a vehicle, scrape a website to quantify the number of available
     aftermarket parts.
     """
-    pass
+    # XXX Add argument checking
+
+    vehicle_str = " ".join([year, make, model])
+
+    summary = {}
+    for website, url in WEBSITES.items():
+        url = url.replace("YEAR", year).replace("MAKE", make).replace("MODEL", model)
+        response = requests.post(url)
+        if response.status_code != 200:
+            print(f"Failed scrape for {vehicle_str} - bad status.", file=sys.stderr)
+            sys.exit(1)
+        m = re.search(TEMP_RE, response.text)
+        if m is not None:
+            num_results = int(m.group("num"))
+            sumary["total"] = num_results
+        else:
+            print(f"Failed scrape for {vehicle_str} - no total found.", file=sys.stderr)
+            sys.exit(1)
+    
+    # Write results
+    with open(vehicle_str.replace(" ", "_") + ".json", "w") as f:
+        json.dump(summary, f)
 
 
 def setup_argparser():
@@ -21,24 +51,24 @@ def setup_argparser():
     parser.add_argument(
             "-y",
             "--year",
-            desc="Year of the vehicle.",
-            type=int
+            help="Year of the vehicle.",
     )
     parser.add_argument(
             "-ma",
             "--make",
-            make="Make of the vehicle.",
+            help="Make of the vehicle.",
     )
     parser.add_argument(
             "-mo",
             "--model",
-            make="Model of the vehicle.",
+            help="Model of the vehicle.",
     )
     parser.add_argument(
             "-t",
             "--trim",
-            make="Trim of the vehicle, if applicable.",
+            help="Trim of the vehicle, if applicable.",
     )
+    return parser
 
 if __name__=="__main__":
     parser = setup_argparser()
